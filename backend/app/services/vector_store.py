@@ -1,7 +1,7 @@
 import os
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
-from embeddings import get_embeddings
+from .embeddings import get_embeddings
 
 def get_vector_store():
     pc = Pinecone(
