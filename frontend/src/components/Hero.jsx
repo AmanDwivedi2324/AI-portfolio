@@ -1,7 +1,5 @@
 import { motion } from "framer-motion";
-
 import {
-  ArrowDownRight,
   ArrowRight,
   Github,
   Linkedin,
@@ -23,25 +21,31 @@ const Hero = ({ onOpenChat }) => {
       className="relative flex min-h-screen items-center overflow-hidden px-5 pb-20 pt-32 sm:px-8 lg:px-10"
     >
       <div className="mx-auto w-full max-w-7xl">
-        <div className="max-w-5xl">
+
+        {/* Background glow */}
+        <div className="pointer-events-none absolute left-[30%] top-[15%] h-[450px] w-[450px] rounded-full bg-violet-600/[0.07] blur-[140px]" />
+
+        <div className="relative">
 
           {/* Status */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="mb-8 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs text-emerald-300"
+            transition={{ duration: 0.5 }}
+            className="mb-8 flex items-center gap-3"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-            Available for opportunities
+            <span className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs text-emerald-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Open to AI/ML opportunities
+            </span>
           </motion.div>
 
-          {/* Main heading */}
+          {/* Heading */}
           <motion.h1
             initial={{ opacity: 0, y: 25 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="max-w-5xl text-[clamp(3.5rem,9vw,8rem)] font-semibold leading-[0.9] tracking-[-0.06em] text-white"
+            transition={{ duration: 0.7 }}
+            className="max-w-6xl text-[clamp(3.5rem,10vw,9rem)] font-semibold leading-[0.85] tracking-[-0.065em]"
           >
             AI / ML
             <br />
@@ -51,37 +55,37 @@ const Hero = ({ onOpenChat }) => {
             </span>
           </motion.h1>
 
-          {/* Description */}
+          {/* Main description */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between"
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="mt-10 grid gap-8 lg:grid-cols-[1fr_auto]"
           >
-            <div className="max-w-xl">
-              <p className="text-lg leading-relaxed text-zinc-400 sm:text-xl">
+            <div>
+              <p className="max-w-2xl text-xl leading-relaxed text-zinc-400 sm:text-2xl">
                 {portfolio.tagline}
               </p>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                {portfolio.skills.slice(0, 6).map((skill) => (
+              <div className="mt-6 flex max-w-2xl flex-wrap gap-2">
+                {portfolio.focus.map((item) => (
                   <span
-                    key={skill}
-                    className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-400"
+                    key={item}
+                    className="rounded-full border border-white/10 bg-white/[0.025] px-3 py-1.5 text-xs text-zinc-400"
                   >
-                    {skill}
+                    {item}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* Social links */}
-            <div className="flex gap-2">
+            {/* Social */}
+            <div className="flex items-end gap-2 lg:pb-1">
               <a
                 href={portfolio.social.github}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full border border-white/10 p-3 text-zinc-400 transition hover:border-white/20 hover:text-white"
+                className="rounded-full border border-white/10 p-3 text-zinc-500 transition hover:border-white/20 hover:text-white"
               >
                 <Github size={18} />
               </a>
@@ -90,7 +94,7 @@ const Hero = ({ onOpenChat }) => {
                 href={portfolio.social.linkedin}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full border border-white/10 p-3 text-zinc-400 transition hover:border-white/20 hover:text-white"
+                className="rounded-full border border-white/10 p-3 text-zinc-500 transition hover:border-white/20 hover:text-white"
               >
                 <Linkedin size={18} />
               </a>
@@ -101,14 +105,15 @@ const Hero = ({ onOpenChat }) => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.25 }}
             className="mt-10 flex flex-col gap-3 sm:flex-row"
           >
             <button
               onClick={scrollToWork}
-              className="group flex items-center justify-center gap-3 rounded-full bg-white px-6 py-3.5 text-sm font-medium text-black transition-transform hover:scale-[1.02]"
+              className="group flex items-center justify-center gap-3 rounded-full bg-white px-6 py-3.5 text-sm font-medium text-black transition hover:scale-[1.02]"
             >
-              Explore my work
+              Explore AI work
+
               <ArrowRight
                 size={17}
                 className="transition-transform group-hover:translate-x-1"
@@ -117,27 +122,53 @@ const Hero = ({ onOpenChat }) => {
 
             <button
               onClick={onOpenChat}
-              className="group flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/[0.03] px-6 py-3.5 text-sm font-medium text-white backdrop-blur transition hover:border-violet-400/40 hover:bg-violet-500/10"
+              className="group flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/[0.03] px-6 py-3.5 text-sm font-medium text-white transition hover:border-violet-400/40 hover:bg-violet-500/10"
             >
               <Sparkles
-                size={17}
+                size={16}
                 className="text-violet-400"
               />
-              Talk to my AI
+
+              Ask Aman AI
             </button>
           </motion.div>
-        </div>
 
-        {/* Bottom indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="absolute bottom-8 left-5 hidden items-center gap-3 text-xs text-zinc-600 sm:flex lg:left-10"
-        >
-          <ArrowDownRight size={16} />
-          Scroll to explore
-        </motion.div>
+          {/* Bottom metadata */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+            className="mt-24 grid max-w-3xl grid-cols-2 gap-8 border-t border-white/10 pt-6 sm:grid-cols-4"
+          >
+            <div>
+              <p className="text-xs text-zinc-600">FOCUS</p>
+              <p className="mt-2 text-sm text-zinc-300">
+                AI / ML
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-zinc-600">SPECIALTY</p>
+              <p className="mt-2 text-sm text-zinc-300">
+                Generative AI
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-zinc-600">BUILD</p>
+              <p className="mt-2 text-sm text-zinc-300">
+                Production AI
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-zinc-600">BASE</p>
+              <p className="mt-2 text-sm text-zinc-300">
+                India
+              </p>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </section>
   );
