@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
@@ -8,6 +8,8 @@ import {
   User,
   X,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const suggestions = [
   "Tell me about Aman",
@@ -19,33 +21,124 @@ const suggestions = [
 const Chatbot = ({ open, onClose }) => {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const sendMessage = (text = message) => {
+  const messagesEndRef = useRef(null);
+
+  // Auto-scroll whenever messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages]);
+
+  const sendMessage = async (text = message) => {
     const value = text.trim();
 
-    if (!value) return;
+    if (!value || isLoading) return;
 
+    // Add user message and empty assistant message
     setMessages((prev) => [
       ...prev,
       {
         role: "user",
         content: value,
       },
+      {
+        role: "assistant",
+        content: "",
+      },
     ]);
 
     setMessage("");
+    setIsLoading(true);
 
-    // Backend connection comes next.
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/chat/stream`,
         {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            question: value,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Request failed with status ${response.status}`
+        );
+      }
+
+      if (!response.body) {
+        throw new Error("Streaming is not supported by this browser.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      let answer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) break;
+
+        const chunk = decoder.decode(value, {
+          stream: true,
+        });
+
+        answer += chunk;
+
+        setMessages((prev) => {
+          const updated = [...prev];
+
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: answer,
+          };
+
+          return updated;
+        });
+      }
+
+      // Flush any remaining decoder content
+      const finalChunk = decoder.decode();
+
+      if (finalChunk) {
+        answer += finalChunk;
+
+        setMessages((prev) => {
+          const updated = [...prev];
+
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: answer,
+          };
+
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+
+      setMessages((prev) => {
+        const updated = [...prev];
+
+        updated[updated.length - 1] = {
           role: "assistant",
           content:
-            "I'm Aman's AI assistant. The RAG backend will be connected here next.",
-        },
-      ]);
-    }, 500);
+            "I couldn't connect to the AI assistant right now. Please try again.",
+        };
+
+        return updated;
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -146,11 +239,14 @@ const Chatbot = ({ open, onClose }) => {
                       <button
                         key={suggestion}
                         onClick={() => sendMessage(suggestion)}
-                        className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left text-xs text-zinc-400 transition hover:border-violet-400/20 hover:bg-violet-500/5 hover:text-white"
+                        disabled={isLoading}
+                        className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left text-xs text-zinc-400 transition hover:border-violet-400/20 hover:bg-violet-500/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {suggestion}
 
-                        <span className="text-zinc-700">→</span>
+                        <span className="text-zinc-700">
+                          →
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -160,11 +256,10 @@ const Chatbot = ({ open, onClose }) => {
                   {messages.map((item, index) => (
                     <div
                       key={index}
-                      className={`flex gap-3 ${
-                        item.role === "user"
+                      className={`flex gap-3 ${item.role === "user"
                           ? "justify-end"
                           : "justify-start"
-                      }`}
+                        }`}
                     >
                       {item.role === "assistant" && (
                         <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400">
@@ -173,13 +268,106 @@ const Chatbot = ({ open, onClose }) => {
                       )}
 
                       <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-6 ${
-                          item.role === "user"
-                            ? "rounded-br-md bg-white text-black"
-                            : "rounded-bl-md border border-white/10 bg-white/[0.035] text-zinc-400"
-                        }`}
+                        className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm ${item.role === "user"
+                            ? "rounded-br-md bg-white leading-6 text-black"
+                            : "rounded-bl-md border border-white/10 bg-white/[0.035] leading-6 text-zinc-400"
+                          }`}
                       >
-                        {item.content}
+                        {item.role === "assistant" ? (
+                          item.content ? (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                h1: ({ children }) => (
+                                  <h1 className="mb-3 text-lg font-semibold text-white">
+                                    {children}
+                                  </h1>
+                                ),
+
+                                h2: ({ children }) => (
+                                  <h2 className="mb-3 mt-1 text-base font-semibold text-white">
+                                    {children}
+                                  </h2>
+                                ),
+
+                                h3: ({ children }) => (
+                                  <h3 className="mb-2 mt-4 text-sm font-semibold text-white">
+                                    {children}
+                                  </h3>
+                                ),
+
+                                p: ({ children }) => (
+                                  <p className="mb-3 leading-6 text-zinc-400 last:mb-0">
+                                    {children}
+                                  </p>
+                                ),
+
+                                strong: ({ children }) => (
+                                  <strong className="font-semibold text-white">
+                                    {children}
+                                  </strong>
+                                ),
+
+                                ul: ({ children }) => (
+                                  <ul className="mb-3 ml-4 list-disc space-y-1.5 text-zinc-400">
+                                    {children}
+                                  </ul>
+                                ),
+
+                                ol: ({ children }) => (
+                                  <ol className="mb-3 ml-4 list-decimal space-y-1.5 text-zinc-400">
+                                    {children}
+                                  </ol>
+                                ),
+
+                                li: ({ children }) => (
+                                  <li className="pl-1 leading-6">
+                                    {children}
+                                  </li>
+                                ),
+
+                                code: ({ children }) => (
+                                  <code className="rounded bg-white/10 px-1.5 py-0.5 text-xs text-violet-300">
+                                    {children}
+                                  </code>
+                                ),
+
+                                a: ({ children, href }) => (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-violet-400 underline underline-offset-2 hover:text-violet-300"
+                                  >
+                                    {children}
+                                  </a>
+                                ),
+                              }}
+                            >
+                              {item.content}
+                            </ReactMarkdown>
+                          ) : (
+                            <div className="flex items-center gap-1 py-1">
+                              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-500" />
+
+                              <span
+                                className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-500"
+                                style={{
+                                  animationDelay: "100ms",
+                                }}
+                              />
+
+                              <span
+                                className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-500"
+                                style={{
+                                  animationDelay: "200ms",
+                                }}
+                              />
+                            </div>
+                          )
+                        ) : (
+                          item.content
+                        )}
                       </div>
 
                       {item.role === "user" && (
@@ -189,6 +377,8 @@ const Chatbot = ({ open, onClose }) => {
                       )}
                     </div>
                   ))}
+
+                  <div ref={messagesEndRef} />
                 </div>
               )}
             </div>
@@ -204,14 +394,17 @@ const Chatbot = ({ open, onClose }) => {
               >
                 <input
                   value={message}
-                  onChange={(event) => setMessage(event.target.value)}
+                  onChange={(event) =>
+                    setMessage(event.target.value)
+                  }
+                  disabled={isLoading}
                   placeholder="Ask something about Aman..."
-                  className="min-w-0 flex-1 bg-transparent px-2 text-sm text-white outline-none placeholder:text-zinc-700"
+                  className="min-w-0 flex-1 bg-transparent px-2 text-sm text-white outline-none placeholder:text-zinc-700 disabled:opacity-50"
                 />
 
                 <button
                   type="submit"
-                  disabled={!message.trim()}
+                  disabled={!message.trim() || isLoading}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-30"
                   aria-label="Send message"
                 >
