@@ -56,6 +56,7 @@ Portfolio context:
 )
 
 
+#retriever 
 def get_context(question: str):
 
     vector_store = get_vector_store()
@@ -100,6 +101,7 @@ def extract_text(content) -> str:
     return ""
 
 
+#augmentation
 def ask_portfolio(question: str):
 
     context = get_context(question)
@@ -114,6 +116,7 @@ def ask_portfolio(question: str):
     return extract_text(response.content)
 
 
+#generation 
 def stream_portfolio(question: str):
 
     context = get_context(question)
