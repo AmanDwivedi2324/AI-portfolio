@@ -1,46 +1,33 @@
 import Message from "../models/message.model.js";
+import ApiError from "../utils/ApiError.js";
 
-export const getMessages = async (req, res) => {
-  try {
-    const items = await Message.find().sort({ createdAt: -1 });
-    res.json(items);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+// POST /api/contact — public
+export async function createMessage(req, res) {
+  const { website, ...data } = req.body;
+  // Honeypot filled in → almost certainly a bot. Pretend it worked, store nothing.
+  if (website) return res.status(201).json({ ok: true });
 
-export const createMessage = async (req, res) => {
-  try {
-    const item = await Message.create(req.body);
-    res.status(201).json(item);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+  await Message.create(data);
+  res.status(201).json({ ok: true });
+}
 
-export const updateMessage = async (req, res) => {
-  try {
-    const item = await Message.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (item) {
-      res.json(item);
-    } else {
-      res.status(404).json({ message: "Message not found" });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+// GET /api/admin/messages?status=all|unread|read
+export async function listMessages(req, res) {
+  const { status } = req.validQuery;
+  const filter = status === "all" ? {} : { read: status === "read" };
+  res.json(await Message.find(filter).sort({ createdAt: -1 }).limit(500));
+}
 
-export const deleteMessage = async (req, res) => {
-  try {
-    const item = await Message.findById(req.params.id);
-    if (item) {
-      await item.deleteOne();
-      res.json({ message: "Message removed" });
-    } else {
-      res.status(404).json({ message: "Message not found" });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+// PATCH /api/admin/messages/:id  { read }
+export async function updateMessage(req, res) {
+  const message = await Message.findByIdAndUpdate(req.params.id, { read: req.body.read }, { returnDocument: "after" });
+  if (!message) throw ApiError.notFound("Message not found");
+  res.json(message);
+}
+
+// DELETE /api/admin/messages/:id
+export async function deleteMessage(req, res) {
+  const message = await Message.findByIdAndDelete(req.params.id);
+  if (!message) throw ApiError.notFound("Message not found");
+  res.status(204).end();
+}

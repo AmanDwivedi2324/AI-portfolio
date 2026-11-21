@@ -1,54 +1,44 @@
+import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
-import jwt from "jsonwebtoken";
+import ApiError from "../utils/ApiError.js";
+import { signToken } from "../services/token.service.js";
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-};
+const INVALID_LOGIN = "Incorrect username or password.";
+// Compared against when the username does not exist, so a wrong username and
+// a wrong password take the same time (no username probing).
+const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 12);
 
-// @desc    Auth admin & get token
-// @route   POST /api/auth/login
-// @access  Public
-export const loginUser = async (req, res) => {
+// POST /api/auth/login
+export async function login(req, res) {
   const { username, password } = req.body;
+  const user = await User.findOne({ username }).select("+passwordHash");
 
-  try {
-    const user = await User.findOne({ username });
+  const ok = user ? await user.checkPassword(password) : await bcrypt.compare(password, DUMMY_HASH);
+  if (!user || !ok) throw ApiError.unauthorized(INVALID_LOGIN);
 
-    if (user && (await user.matchPassword(password))) {
-      res.json({
-        _id: user.id,
-        username: user.username,
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(401).json({ message: "Invalid username or password" });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  user.lastLoginAt = new Date();
+  await user.save();
+  res.json({ token: signToken(user), user: user.toJSON() });
+}
+
+// GET /api/auth/me
+export function me(req, res) {
+  res.json({ user: req.user.toJSON() });
+}
+
+// PUT /api/auth/password — also signs out every other session
+export async function changePassword(req, res) {
+  const { currentPassword, newPassword } = req.body;
+  const user = await User.findById(req.user.id).select("+passwordHash");
+
+  if (!(await user.checkPassword(currentPassword))) {
+    throw ApiError.badRequest("Your current password is incorrect.", [
+      { path: "currentPassword", message: "Incorrect password" },
+    ]);
   }
-};
 
-// @desc    Register new admin (Run once manually or via postman)
-// @route   POST /api/auth/register
-// @access  Public
-export const registerUser = async (req, res) => {
-  const { username, password } = req.body;
-  try {
-    const userExists = await User.findOne({ username });
-    if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-    const user = await User.create({ username, password });
-    if (user) {
-      res.status(201).json({
-        _id: user.id,
-        username: user.username,
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(400).json({ message: "Invalid user data" });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+  await user.setPassword(newPassword);
+  user.tokenVersion += 1;
+  await user.save();
+  res.json({ token: signToken(user), user: user.toJSON() });
+}

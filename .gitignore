@@ -1,0 +1,26 @@
+# ── Dependencies & builds ───────────────────────────────
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ── Secrets & machine-local files (never commit) ────────
+.env
+.env.*
+!.env.example
+!.env.development
+*.local
+*.local.md
+
+# ── Chatbot: index, chunk preview and downloaded model (rebuilt by `python -m app.ingest`)
+Chatbot/storage/
+
+# ── Editors & OS ────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.log

@@ -1,21 +1,24 @@
-import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+import ApiError from "../utils/ApiError.js";
+import { verifyToken } from "../services/token.service.js";
 
-export const protect = async (req, res, next) => {
-  let token;
+const SESSION_EXPIRED = "Your session has expired. Please log in again.";
 
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    try {
-      token = req.headers.authorization.split(" ")[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await User.findById(decoded.id).select("-password");
-      next();
-    } catch (error) {
-      res.status(401).json({ message: "Not authorized, token failed" });
-    }
+/** Require a valid `Authorization: Bearer <token>` for an existing admin. */
+export async function requireAuth(req, _res, next) {
+  const [scheme, token] = (req.get("authorization") ?? "").split(" ");
+  if (scheme !== "Bearer" || !token) throw ApiError.unauthorized();
+
+  let payload;
+  try {
+    payload = verifyToken(token);
+  } catch {
+    throw ApiError.unauthorized(SESSION_EXPIRED);
   }
 
-  if (!token) {
-    res.status(401).json({ message: "Not authorized, no token" });
-  }
-};
+  const user = await User.findById(payload.sub);
+  if (!user || user.tokenVersion !== payload.ver) throw ApiError.unauthorized(SESSION_EXPIRED);
+
+  req.user = user;
+  next();
+}

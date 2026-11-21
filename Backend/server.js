@@ -1,43 +1,28 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import connectDB from "./config/db.js";
-import path from "path";
+import { env } from "./config/env.js";
+import { connectDB, disconnectDB } from "./config/db.js";
+import app from "./app.js";
 
-// Import routers
-import authRoutes from "./routes/auth.route.js";
-import projectRoutes from "./routes/project.route.js";
-import experienceRoutes from "./routes/experience.route.js";
-import skillRoutes from "./routes/skill.route.js";
-import freelanceRoutes from "./routes/freelance.route.js";
-import messageRoutes from "./routes/message.route.js";
-import profileRoutes from "./routes/profile.route.js";
+try {
+  await connectDB(env.MONGO_URI);
+} catch (error) {
+  console.error(`✖ Could not connect to MongoDB: ${error.message}`);
+  process.exit(1);
+}
 
-dotenv.config();
-connectDB();
-
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
-
-// Default route
-app.get("/", (req, res) => {
-  res.send("API is running...");
+const server = app.listen(env.PORT, () => {
+  console.log(`✓ API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
+  console.log(`  uploads → ${env.cloudinaryEnabled ? "Cloudinary" : "local disk (public/uploads)"}`);
 });
 
-// Mounted routes
-app.use("/api/auth", authRoutes);
-app.use("/api/projects", projectRoutes);
-app.use("/api/experience", experienceRoutes);
-app.use("/api/skills", skillRoutes);
-app.use("/api/freelance", freelanceRoutes);
-app.use("/api/contact", messageRoutes);
-app.use("/api/profile", profileRoutes);
+function shutdown(signal) {
+  console.log(`${signal} received — shutting down`);
+  server.close(async () => {
+    await disconnectDB();
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("unhandledRejection", (reason) => console.error("Unhandled rejection:", reason));
