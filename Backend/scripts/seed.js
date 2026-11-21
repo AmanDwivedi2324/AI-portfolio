@@ -27,7 +27,7 @@ const collections = [
 ];
 
 try {
-  await connectDB(env.MONGO_URI);
+  await connectDB(env.MONGO_URI, env.MONGO_DB_NAME);
   for (const { Model, name, docs } of collections) {
     const existing = await Model.countDocuments();
     if (existing && !force) {

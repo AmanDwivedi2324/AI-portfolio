@@ -9,6 +9,8 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().int().positive().default(5000),
   MONGO_URI: z.string().min(1, "MONGO_URI is required"),
+  // Database inside the cluster; empty = the one named in MONGO_URI (or "test").
+  MONGO_DB_NAME: z.string().trim().optional(),
   JWT_SECRET: z
     .string()
     .min(32, "JWT_SECRET must be at least 32 characters (generate one with: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\")"),

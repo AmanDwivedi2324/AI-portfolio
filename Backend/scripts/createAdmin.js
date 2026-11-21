@@ -25,7 +25,7 @@ if (!username || password.length < PASSWORD_MIN) {
 }
 
 try {
-  await connectDB(env.MONGO_URI);
+  await connectDB(env.MONGO_URI, env.MONGO_DB_NAME);
   let user = await User.findOne({ username });
   const isNew = !user;
   user ??= new User({ username });

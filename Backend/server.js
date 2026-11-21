@@ -3,7 +3,7 @@ import { connectDB, disconnectDB } from "./config/db.js";
 import app from "./app.js";
 
 try {
-  await connectDB(env.MONGO_URI);
+  await connectDB(env.MONGO_URI, env.MONGO_DB_NAME);
 } catch (error) {
   console.error(`✖ Could not connect to MongoDB: ${error.message}`);
   process.exit(1);

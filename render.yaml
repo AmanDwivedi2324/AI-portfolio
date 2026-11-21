@@ -1,0 +1,70 @@
+# Render Blueprint — creates the CRM API and the chatbot from this repo.
+# Both redeploy automatically when files in their folder change on `main`.
+# Keys marked `sync: false` are entered once in the Render dashboard (never committed).
+services:
+  - type: web
+    name: aman-portfolio-api
+    runtime: node
+    plan: free
+    region: singapore # close to the MongoDB Atlas cluster and to visitors in India
+    rootDir: Backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB_NAME
+        value: portfolio_v2
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: CORS_ORIGINS
+        value: https://aman-dwivedi.vercel.app
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  - type: web
+    name: aman-portfolio-chat
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: Chatbot
+    # Re-indexes the knowledge-base PDF into Pinecone on every deploy, so pushing
+    # a new data/knowledge_base.pdf updates the live assistant.
+    buildCommand: pip install -r requirements.txt && python -m app.ingest
+    # The embedding model is downloaded during the build, so run offline afterwards.
+    startCommand: HF_HUB_OFFLINE=1 uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: ENV
+        value: production
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX
+        value: aman-portfolio-kb
+      - key: PINECONE_NAMESPACE
+        value: kb-v2
+      - key: CORS_ORIGINS
+        value: https://aman-dwivedi.vercel.app
+      - key: TRUST_PROXY
+        value: "true"
+      - key: ADMIN_TOKEN
+        generateValue: true
