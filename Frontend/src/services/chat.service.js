@@ -9,6 +9,17 @@ export const isChatLive = Boolean(CHAT_API_URL);
 
 export class ChatError extends Error {}
 
+/** true when the assistant answers /health within `timeoutMs`. */
+export async function checkAgentHealth(timeoutMs = 5000) {
+  if (!isChatLive) return false;
+  try {
+    const response = await fetch(`${CHAT_API_URL}/health`, { signal: AbortSignal.timeout(timeoutMs) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 const NOT_LIVE_ANSWER =
   "My knowledge base is still being set up, so I can't answer that yet. In the meantime, you can reach Aman through the contact form on this page.";
 
