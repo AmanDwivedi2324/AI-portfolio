@@ -17,6 +17,15 @@ export const uploadSingle = multer({
 }).single("file");
 
 /**
+ * Multer decodes file names as Latin-1, so "Résumé.pdf" arrives as
+ * "RÃ©sumÃ©.pdf". Re-decode as UTF-8 when that produces valid text.
+ */
+export function fixFilenameEncoding(name = "") {
+  const decoded = Buffer.from(name, "latin1").toString("utf8");
+  return decoded.includes("�") ? name : decoded;
+}
+
+/**
  * Detect the real file type from its first bytes — the mimetype sent by the
  * browser can be faked.
  */

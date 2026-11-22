@@ -25,3 +25,6 @@ Chatbot/storage/
 .DS_Store
 Thumbs.db
 *.log
+
+# Files uploaded while running the backend locally (production uses Cloudinary)
+Backend/public/uploads/

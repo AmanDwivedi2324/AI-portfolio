@@ -25,7 +25,13 @@ export default function Journey({ heading, experience, profile }) {
             </Assemble>
           )}
           <Assemble id="journey.resume" variant="fade" className="mt-6">
-            <a href={profile.resumeUrl} download className="font-mono text-xs tracking-[0.15em] text-blaze uppercase hover:text-ember">
+            <a
+              href={profile.resumeUrl}
+              download
+              // Uploaded résumés live on Cloudinary (another site): open them in a new tab.
+              {...(/^https?:\/\//.test(profile.resumeUrl) && { target: "_blank", rel: "noreferrer" })}
+              className="font-mono text-xs tracking-[0.15em] text-blaze uppercase hover:text-ember"
+            >
               Download full résumé →
             </a>
           </Assemble>

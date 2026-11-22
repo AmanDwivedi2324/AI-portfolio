@@ -9,6 +9,7 @@ import path from "node:path";
 
 process.env.NODE_ENV = "test";
 process.env.MONGO_URI = process.env.TEST_MONGO_URI ?? "mongodb://127.0.0.1:27017/portfolio_test";
+process.env.MONGO_DB_NAME = ""; // never inherit the live database name from .env
 process.env.JWT_SECRET = "test-only-secret-".padEnd(64, "x");
 for (const key of ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"]) process.env[key] = "";
 
@@ -16,7 +17,8 @@ const { default: mongoose } = await import("mongoose");
 const { default: app } = await import("../app.js");
 const { connectDB, disconnectDB } = await import("../config/db.js");
 const { default: User } = await import("../models/user.model.js");
-const { UPLOAD_DIR } = await import("../services/storage.service.js");
+const { UPLOAD_DIR, cloudinaryUploadOptions, safeBaseName } = await import("../services/storage.service.js");
+const PDF_TINY = Buffer.from("%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n");
 
 const ADMIN = { username: "admin", password: "correct horse battery" };
 const PNG_1X1 = Buffer.from(
@@ -272,6 +274,37 @@ describe("uploads", () => {
     const file = await fetch(base + res.body.url);
     assert.equal(file.status, 200);
     assert.equal(file.headers.get("content-type"), "image/png");
+  });
+});
+
+describe("document uploads keep their .pdf name", () => {
+  test("a PDF is stored and served as <clean-name>-<id>.pdf", async () => {
+    const form = new FormData();
+    form.append("file", new Blob([PDF_TINY], { type: "application/pdf" }), "Aman Résumé (final).pdf");
+    const res = await fetch(`${base}/api/admin/uploads?kind=document`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const body = await res.json();
+    assert.equal(res.status, 201);
+    assert.match(body.url, /^\/uploads\/Aman_Resume_final-[0-9a-f]{6}\.pdf$/);
+    uploaded.push(path.basename(body.url));
+    const file = await fetch(base + body.url);
+    assert.equal(file.headers.get("content-type"), "application/pdf");
+  });
+
+  test("Cloudinary raw uploads carry the .pdf extension in their public_id", () => {
+    const opts = cloudinaryUploadOptions({ originalname: "My CV.pdf", mimetype: "application/pdf" }, "document");
+    assert.equal(opts.resource_type, "raw");
+    assert.match(opts.public_id, /^My_CV-[0-9a-f]{6}\.pdf$/);
+    assert.equal(cloudinaryUploadOptions({ mimetype: "image/png" }, "image").public_id, undefined);
+  });
+
+  test("unsafe or empty names are cleaned", () => {
+    assert.equal(safeBaseName("../../etc/passwd"), "passwd");
+    assert.equal(safeBaseName(""), "file");
+    assert.equal(safeBaseName("Aman_Final_Resume__Copy__Copy__for_aiml.pdf"), "Aman_Final_Resume_Copy_Copy_for_aiml");
   });
 });
 

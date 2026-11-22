@@ -1,6 +1,12 @@
 import ApiError from "../utils/ApiError.js";
 import { storeFile } from "../services/storage.service.js";
-import { DOCUMENT_TYPES, IMAGE_TYPES, MAX_IMAGE_BYTES, sniffMimeType } from "../middleware/upload.middleware.js";
+import {
+  DOCUMENT_TYPES,
+  IMAGE_TYPES,
+  MAX_IMAGE_BYTES,
+  fixFilenameEncoding,
+  sniffMimeType,
+} from "../middleware/upload.middleware.js";
 
 // POST /api/admin/uploads?kind=image|document  (multipart field "file")
 export async function uploadFile(req, res) {
@@ -19,6 +25,6 @@ export async function uploadFile(req, res) {
     throw ApiError.badRequest("Images must be 5 MB or smaller.");
   }
 
-  const stored = await storeFile(file, kind);
+  const stored = await storeFile({ ...file, originalname: fixFilenameEncoding(file.originalname) }, kind);
   res.status(201).json({ ...stored, size: file.size, type: realType });
 }
