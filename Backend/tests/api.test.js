@@ -277,8 +277,8 @@ describe("uploads", () => {
   });
 });
 
-describe("document uploads keep their .pdf name", () => {
-  test("a PDF is stored and served as <clean-name>-<id>.pdf", async () => {
+describe("documents (résumé PDFs)", () => {
+  test("are stored in the database and download as a named .pdf", async () => {
     const form = new FormData();
     form.append("file", new Blob([PDF_TINY], { type: "application/pdf" }), "Aman Résumé (final).pdf");
     const res = await fetch(`${base}/api/admin/uploads?kind=document`, {
@@ -288,17 +288,24 @@ describe("document uploads keep their .pdf name", () => {
     });
     const body = await res.json();
     assert.equal(res.status, 201);
-    assert.match(body.url, /^\/uploads\/Aman_Resume_final-[0-9a-f]{6}\.pdf$/);
-    uploaded.push(path.basename(body.url));
+    assert.equal(body.storage, "database");
+    assert.match(body.url, /^\/api\/files\/[a-f\d]{24}\/Aman_Resume_final\.pdf$/);
+
+    // Public download, no auth needed.
     const file = await fetch(base + body.url);
+    assert.equal(file.status, 200);
     assert.equal(file.headers.get("content-type"), "application/pdf");
+    assert.match(file.headers.get("content-disposition"), /^attachment; filename="Aman_Resume_final\.pdf"/);
+    assert.deepEqual(Buffer.from(await file.arrayBuffer()), PDF_TINY);
   });
 
-  test("Cloudinary raw uploads carry the .pdf extension in their public_id", () => {
-    const opts = cloudinaryUploadOptions({ originalname: "My CV.pdf", mimetype: "application/pdf" }, "document");
-    assert.equal(opts.resource_type, "raw");
-    assert.match(opts.public_id, /^My_CV-[0-9a-f]{6}\.pdf$/);
-    assert.equal(cloudinaryUploadOptions({ mimetype: "image/png" }, "image").public_id, undefined);
+  test("unknown or invalid file ids", async () => {
+    assert.equal((await fetch(`${base}/api/files/${"a".repeat(24)}/x.pdf`)).status, 404);
+    assert.equal((await fetch(`${base}/api/files/not-an-id/x.pdf`)).status, 400);
+  });
+
+  test("images still go to Cloudinary as images", () => {
+    assert.equal(cloudinaryUploadOptions().resource_type, "image");
   });
 
   test("unsafe or empty names are cleaned", () => {

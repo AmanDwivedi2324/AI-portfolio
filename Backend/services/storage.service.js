@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import cloudinary from "../config/cloudinary.js";
 import { env } from "../config/env.js";
+import StoredFile from "../models/storedFile.model.js";
 
 export const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 
@@ -27,22 +28,9 @@ export function safeBaseName(originalName = "") {
   return base || "file";
 }
 
-/**
- * Cloudinary options for an upload.
- * Documents (PDFs) are stored as "raw" files, which Cloudinary names only by
- * their public_id — so the extension must be part of it. Without ".pdf" the
- * download arrives as an extension-less file the OS cannot open.
- */
-export function cloudinaryUploadOptions(file, kind) {
-  if (kind === "image") {
-    return { folder: env.CLOUDINARY_FOLDER, resource_type: "image" };
-  }
-  const suffix = crypto.randomBytes(3).toString("hex");
-  return {
-    folder: env.CLOUDINARY_FOLDER,
-    resource_type: "raw",
-    public_id: `${safeBaseName(file.originalname)}-${suffix}${EXTENSIONS[file.mimetype] ?? ""}`,
-  };
+/** Cloudinary options for an image upload. */
+export function cloudinaryUploadOptions() {
+  return { folder: env.CLOUDINARY_FOLDER, resource_type: "image" };
 }
 
 const uploadToCloudinary = (buffer, options) =>
@@ -51,26 +39,31 @@ const uploadToCloudinary = (buffer, options) =>
     stream.end(buffer);
   });
 
+/** Save a document in MongoDB; returns its API path (/api/files/<id>/<name>.pdf). */
+export async function storeDocument({ buffer, mimetype, originalname }) {
+  const filename = `${safeBaseName(originalname)}${EXTENSIONS[mimetype] ?? ""}`;
+  const doc = await StoredFile.create({ filename, mimetype, size: buffer.length, data: buffer });
+  return { url: `/api/files/${doc.id}/${encodeURIComponent(filename)}`, storage: "database" };
+}
+
 /**
  * Store an uploaded file and return its public URL.
- * Uses Cloudinary when configured, otherwise the local `public/uploads`
- * folder (served at /uploads). Stored names are generated; only a cleaned-up
- * version of the original name is kept for documents, so downloads look right.
+ * - Documents (PDFs) → MongoDB, served by GET /api/files/:id/:name as a real
+ *   PDF download with its original (cleaned-up) name.
+ * - Images → Cloudinary when configured, otherwise `public/uploads` (served at /uploads).
  *
  * @param {{ buffer: Buffer, mimetype: string, originalname?: string }} file
  * @param {"image" | "document"} kind
  */
 export async function storeFile(file, kind) {
+  if (kind === "document") return storeDocument(file);
+
   if (env.cloudinaryEnabled) {
-    const result = await uploadToCloudinary(file.buffer, cloudinaryUploadOptions(file, kind));
+    const result = await uploadToCloudinary(file.buffer, cloudinaryUploadOptions());
     return { url: result.secure_url, storage: "cloudinary" };
   }
 
-  const ext = EXTENSIONS[file.mimetype] ?? "";
-  const name =
-    kind === "image"
-      ? `${Date.now()}-${crypto.randomUUID()}${ext}`
-      : `${safeBaseName(file.originalname)}-${crypto.randomBytes(3).toString("hex")}${ext}`;
+  const name = `${Date.now()}-${crypto.randomUUID()}${EXTENSIONS[file.mimetype] ?? ""}`;
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
   await fs.writeFile(path.join(UPLOAD_DIR, name), file.buffer);
   return { url: `/uploads/${name}`, storage: "local" };
